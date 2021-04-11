@@ -15,6 +15,6 @@ def connection_to_db(func):
             print("Failed to read data from sqlite table", error)
         finally:
             if connection:
+                connection.commit()
                 connection.close()
-                #print("The SQLite connection is closed")
     return wrap_func

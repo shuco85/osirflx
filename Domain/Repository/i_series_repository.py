@@ -19,4 +19,3 @@ class ISeriesRepository:
     @abstractmethod
     def get_series_from_study_pk(self, z_pk) -> List[ZSeries]:
         pass
-

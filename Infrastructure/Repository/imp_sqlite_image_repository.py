@@ -44,3 +44,29 @@ class ImpSqliteImageRepository(IImageRepository):
 
     def get_image_from_sop(self, z_sop) -> List[ZImage]:
         pass
+
+    def add_roi_to_image(self, z_pk, z_index, z_roi) -> int:
+        return self._add_roi_to_image_with_connection(z_pk, z_index, z_roi)
+
+    @connection_to_db
+    def _add_roi_to_image_with_connection(self, z_pk, z_index, z_roi, **kwargs) -> int:
+        cursor = kwargs['cursor']
+        sql = ''' INSERT INTO Z_ROI (Z_IMAGE, Z_INDEX, Z_POINTS_PX)
+                                      VALUES(?,?,?) '''
+        cursor.execute(sql, (str(z_pk), str(z_index), str(z_roi.points_px),))
+        roi_pk = cursor.lastrowid
+        return roi_pk
+
+    @connection_to_db
+    def get_last_roi_index_from_image(self, z_pk, **kwargs) -> int:
+        cursor = kwargs['cursor']
+        sql = ''' SELECT MAX(Z_INDEX) 
+                  FROM Z_ROI 
+                  WHERE Z_IMAGE = ?'''
+        cursor.execute(sql, (z_pk,))
+        records = cursor.fetchall()
+        last_index = 0
+        for row in records:
+            last_index = int(row[0])
+
+        return last_index

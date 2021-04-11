@@ -34,6 +34,6 @@ class ImpSqliteRoiRepository(IRoiRepository):
             z_index = int(row[2])
             z_roi_type = int(row[3]) if row[3] else None
             z_points_px = ast.literal_eval(row[4])
-            new_roi = ZRoi(roi_pk, roi_type=z_roi_type, index=z_index, points_px=z_points_px)
+            new_roi = ZRoi(roi_pk, roi_series=z_roi_type, index=z_index, points_px=z_points_px)
             rois_list.append(new_roi)
         return rois_list

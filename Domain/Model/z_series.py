@@ -1,9 +1,10 @@
 class ZSeries:
-    def __init__(self, pk, images, series_instance_uid):
+    def __init__(self, pk, images, series_instance_uid, roi_series_list):
         self.pk = pk
         self.images = images
         self.series_instance_uid = series_instance_uid
         self.images = images
+        self.roi_series_list = roi_series_list
         self._index_generator = 0
 
     def __str__(self):
@@ -29,6 +30,7 @@ class ZSeries:
             self._index_generator = 0
             raise StopIteration
 
-    def add_image_with_roi(self, new_image_with_roi):
-        new_image_with_roi.obtain_dicom_file_path()
-        self.images_with_rois.append(new_image_with_roi)
+    def get_roi_series_from_name(self, name):
+        for roi_series in self.roi_series_list:
+            if roi_series.name == name:
+                return roi_series

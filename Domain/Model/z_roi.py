@@ -3,10 +3,10 @@ import numpy as np
 
 
 class ZRoi:
-    def __init__(self, pk=None, roi_type=None, index=None, points_px=None):
+    def __init__(self, pk=None, roi_series=None, index=None, points_px=None):
         self.pk = pk
         self.index = index
-        self.roi_type = roi_type
+        self.roi_type = roi_series
         self.points_px = points_px
 
     def __str__(self):

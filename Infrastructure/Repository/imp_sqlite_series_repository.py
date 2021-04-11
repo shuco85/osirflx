@@ -1,12 +1,13 @@
-from Domain.Repository import ISeriesRepository, IImageRepository
+from Domain.Repository import ISeriesRepository, IImageRepository, IRoiSeriesRepository
 from Domain.Model import ZStudy, ZSeries
 from Infrastructure.Repository import connection_to_db
 from typing import List
 
 
 class ImpSqliteSeriesRepository(ISeriesRepository):
-    def __init__(self, image_repository: IImageRepository):
+    def __init__(self, image_repository: IImageRepository, roi_series_repository: IRoiSeriesRepository):
         self.image_repository = image_repository
+        self.roi_series_repository = roi_series_repository
 
     def get_all_series(self) -> List[ZStudy]:
         pass
@@ -30,7 +31,8 @@ class ImpSqliteSeriesRepository(ISeriesRepository):
             study_fk = int(row[1])
             series_instance_uid = row[2]
             images = self.image_repository.get_images_from_series_pk(series_pk)
-            new_series = ZSeries(series_pk, images, series_instance_uid)
+            roi_series_list = self.roi_series_repository.get_roi_series_from_series_pk(series_pk)
+            new_series = ZSeries(series_pk, images, series_instance_uid, roi_series_list)
 
             series_list.append(new_series)
 

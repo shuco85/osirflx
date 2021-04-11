@@ -25,14 +25,14 @@ class Osirflx(tk.Tk):
                         anchor='W')
         style.configure('DataImage.TLabel',
                         foreground='black',
-                        font=('TkDefault', 18),
+                        font=('TkDefault', 14),
                         sticky='EW',
                         anchor='W',
-                        padding=10)
+                        padding=5)
         style.configure('Bold.DataImage.TLabel',
-                        font=('TkDefault', 18, 'bold'))
+                        font=('TkDefault', 14, 'bold'))
         style.configure('Title.DataImage.TLabel',
-                        font=('TkDefault', 30, 'bold'))
+                        font=('TkDefault', 20, 'bold'))
 
         style.configure('Light.TSeparator',
                         background='red')

@@ -19,3 +19,7 @@ class IImageRepository:
     @abstractmethod
     def get_image_from_sop(self, z_sop) -> List[ZImage]:
         pass
+
+    @abstractmethod
+    def add_roi_to_image(self, z_pk, z_index, z_roi) -> int:
+        pass

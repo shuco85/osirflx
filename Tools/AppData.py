@@ -1,5 +1,5 @@
 from Infrastructure.Repository import ImpSqliteStudyRepository, ImpSqliteSeriesRepository, \
-    ImpSqliteImageRepository, ImpSqliteRoiRepository
+    ImpSqliteImageRepository, ImpSqliteRoiRepository, ImpSqliteRoiSeriesRepository
 
 
 class AppData:
@@ -7,11 +7,12 @@ class AppData:
         self.current_patient_index = 0
         self.root = None
 
-        roi_repository = ImpSqliteRoiRepository()
-        image_repository = ImpSqliteImageRepository(roi_repository)
-        series_repository = ImpSqliteSeriesRepository(image_repository)
-        study_repository = ImpSqliteStudyRepository(series_repository)
-        self.studies = study_repository.get_all_studies()
+        self.roi_repository = ImpSqliteRoiRepository()
+        self.roi_series_repository = ImpSqliteRoiSeriesRepository()
+        self.image_repository = ImpSqliteImageRepository(self.roi_repository)
+        self.series_repository = ImpSqliteSeriesRepository(self.image_repository, self.roi_series_repository)
+        self.study_repository = ImpSqliteStudyRepository(self.series_repository)
+        self.studies = self.study_repository.get_all_studies()
 
     def set_root(self, root):
         self.root = root

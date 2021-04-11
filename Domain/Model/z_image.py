@@ -104,6 +104,9 @@ class ZImage:
 
         return img_color
 
+    def add_roi(self, roi):
+        self.rois.append(roi)
+
 ''' def __str__(self):
     return f"""sop_instance_uid: \t{self.series.sop_instance_uid}
 series_instance_uid: \t{self.series_instance_uid}
