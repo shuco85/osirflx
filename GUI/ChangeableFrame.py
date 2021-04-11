@@ -17,7 +17,7 @@ class ChangeableFrame(ttk.Frame):
         self.grid_columnconfigure(0, weight=1)
 
         # -- CANVAS_AND_DATA FRAME
-        self.canvas_and_frames = [CanvasAndDataFrame(self, image, study) for image in self.study.series[0]]
+        self.canvas_and_frames = [CanvasAndDataFrame(self, app_data, study, image) for image in self.study.series[0]]
         self.canvas_and_frames[self.current_canvas_and_data_index].grid(row=1, column=0, sticky='NSEW')
 
         # -- THUMBNAILS FRAME

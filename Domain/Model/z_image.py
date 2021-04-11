@@ -1,5 +1,6 @@
 from pydicom import dcmread
 from pydicom.pixel_data_handlers.util import apply_voi_lut, apply_modality_lut
+from typing import List
 import numpy as np
 from PIL import Image, ImageDraw
 
@@ -13,6 +14,7 @@ class ZImage:
         self.width = width
         self.height = height
         self.rois = rois
+        self._index_generator = 0
 
     def __str__(self):
         rois_string = ""
@@ -27,6 +29,31 @@ class ZImage:
                f"Number of rois: {str(len(self.rois))}\n" +
                '------------------------------\n' +
                f"ROIS: \n{rois_string}\n")
+
+    def __len__(self):
+        return len(self.rois)
+
+    def __getitem__(self, item):
+        if isinstance(item, str):
+            for roi in self.rois:
+                if roi.pk == int(item):
+                    return roi
+
+        else:
+            return self.rois[item]
+        return None
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        self._index_generator += 1
+
+        try:
+            return self.rois[self._index_generator - 1]
+        except IndexError:
+            self._index_generator = 0
+            raise StopIteration
 
     def append_roi(self, roi):
         self.rois.append(roi)

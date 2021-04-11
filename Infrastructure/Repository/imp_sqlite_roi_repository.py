@@ -29,10 +29,10 @@ class ImpSqliteRoiRepository(IRoiRepository):
         cursor.execute(query, (str(z_image_pk),))
         records = cursor.fetchall()
         for row in records:
-            roi_pk = row[0]
-            z_image_fk = row[1]
-            z_index = row[2]
-            z_roi_type = row[3]
+            roi_pk = int(row[0])
+            z_image_fk = int(row[1])
+            z_index = int(row[2])
+            z_roi_type = int(row[3]) if row[3] else None
             z_points_px = ast.literal_eval(row[4])
             new_roi = ZRoi(roi_pk, roi_type=z_roi_type, index=z_index, points_px=z_points_px)
             rois_list.append(new_roi)

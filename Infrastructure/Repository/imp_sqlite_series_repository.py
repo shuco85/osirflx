@@ -26,8 +26,8 @@ class ImpSqliteSeriesRepository(ISeriesRepository):
         records = cursor.fetchall()
 
         for row in records:
-            series_pk = row[0]
-            study_fk = row[1]
+            series_pk = int(row[0])
+            study_fk = int(row[1])
             series_instance_uid = row[2]
             images = self.image_repository.get_images_from_series_pk(series_pk)
             new_series = ZSeries(series_pk, images, series_instance_uid)

@@ -29,8 +29,8 @@ class ImpSqliteImageRepository(IImageRepository):
         records = cursor.fetchall()
 
         for row in records:
-            image_pk = row[0]
-            z_series = row[1]
+            image_pk = int(row[0])
+            z_series = int(row[1])
             z_sop_instance_uid = row[2]
             z_index = int(row[3])
             z_path = row[4]

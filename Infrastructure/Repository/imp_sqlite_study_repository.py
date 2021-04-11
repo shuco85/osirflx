@@ -23,7 +23,7 @@ class ImpSqliteStudyRepository(IStudyRepository):
         records = cursor.fetchall()
 
         for row in records:
-            study_pk = row[0]
+            study_pk = int(row[0])
             study_instance_uid = row[1]
             patient_name = row[2]
             patient_id = row[3]
