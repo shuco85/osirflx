@@ -8,6 +8,21 @@ from Domain.Model import ZStudy, ZImage, ZRoi
 from Tools.AppData import AppData
 from scipy.interpolate import splprep, splev
 
+import PIL
+import cv2
+import os
+from tensorflow.python.client import device_lib
+from fastai.basics import *
+from fastai.vision import models
+from fastai.vision.all import *
+from fastai.metrics import *
+from fastai.data.all import *
+from fastai.callback import *
+from pathlib import Path
+import random
+from tensorflow.python.client import device_lib
+import torchvision.transforms as transforms
+
 ROI_POINT_RADIUS = 3
 
 
@@ -17,19 +32,23 @@ class CanvasAndDataFrame(ttk.Frame):
 
         self.app_data = app_data
 
+        self.tirar = False
         # -- DATA FRAME
         self.study = study
         self.image = image
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
-        self.image_data_frame = DataFrame(self, app_data, study, image, study.patient_name)
-        self.image_data_frame.grid(row=0, column=1, sticky='NSEW', padx=40, pady=5)
+        self.data_frame = DataFrame(self, app_data, study, image, study.patient_name)
+        self.data_frame.grid(row=0, column=1, sticky='NSEW', padx=40, pady=5)
         # --
 
         # -- CANVAS
-        self.canvas = MyCanvas(self, app_data, study, image)
+        self.canvas = MyCanvas(self, app_data, study, image, self.data_frame.add_new_roi_frame)
         self.canvas.grid(row=0, column=0, sticky='NSEW', padx=0, pady=0)
         # --
+
+        self.data_frame.update_callback_in_roi_data_frames(self.canvas.update_roi_canvas)
+
 
         '''# -- COORDINATES
         self.coordinates = tk.StringVar(value='0 x 0')
@@ -84,7 +103,9 @@ class DataFrame(ttk.Frame):
         super().__init__(container)
         self.grid_columnconfigure(0, weight=1)
         self.study = study
+        self.app_data = app_data
         self.image_data = image_data
+        self.update_canvas_callback = None
 
         self.sop_number = tk.StringVar()
         ttk.Label(self, text='Sop Number: ').grid(row=1, column=0, sticky='W')
@@ -111,7 +132,7 @@ class DataFrame(ttk.Frame):
             else:
                 element['style'] = 'DataImage.TLabel'
 
-        title_label = ttk.Label(self, text='Paciente ' + patient_name)
+        title_label = ttk.Label(self, text='Paciente: ' + patient_name)
         title_label.grid(row=0, column=0, columnspan=2, sticky='EW', pady=10)
         title_label.configure(style='Title.DataImage.TLabel')
 
@@ -119,11 +140,76 @@ class DataFrame(ttk.Frame):
         rois_label.grid(row=9, column=0, columnspan=2, sticky='EW', pady=(20, 0))
         rois_label.configure(style='Title.DataImage.TLabel')
 
+        self.roi_data_frames = []
+
         for roi in image_data.rois:
-            roid_data_frame = RoiDataFrame(self, app_data, study, image_data, roi)
-            roid_data_frame.grid(columnspan=2, sticky='EW', pady=6)
+            self.add_new_roi_frame(self.study, self.image_data, roi)
 
         self.update_values()
+
+    def predice_roi_imagen(self):
+
+        aux = device_lib.list_local_devices()
+        print('----------------')
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model = torch.jit.load("./Assets/unet.pth")
+        model = model.cpu()
+        model.eval()
+        def transform_image(image):
+            my_transforms = transforms.Compose([transforms.ToTensor(),
+                                                transforms.Normalize(
+                                                    [0.485, 0.456, 0.406],
+                                                    [0.229, 0.224, 0.225])])
+            image_aux = image
+            return my_transforms(image_aux).unsqueeze(0).to(device)
+
+        import PIL
+        import cv2
+
+        img = PIL.Image.open('Assets/dataset/Images/test/orig-' + "30412" + '.png')
+        img = img.convert('RGB')
+        image = transforms.Resize((512, 512))(img)
+        tensor = transform_image(image=image)
+        model.to(device)
+        with torch.no_grad():
+            outputs = model(tensor)
+        outputs = torch.argmax(outputs, 1)
+
+        mask = np.array(outputs.cpu())
+        mask[mask == 1] = 255
+        mask = np.reshape(mask, (512, 512))
+        predicha = Image.fromarray(mask.astype('uint8'))
+        img.save('original.png')
+        predicha.save('predicha.png')
+
+        contours, hierarchy = cv2.findContours(mask.astype('uint8'), cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
+        # Draw External Contours
+
+        # Set up empty array
+        external_contours = np.zeros(mask.astype('uint8').shape)
+
+        # For every entry in contours
+        for i in range(len(contours)):
+
+            # last column in the array is -1 if an external contour (no contours inside of it)
+            if hierarchy[0][i][3] == -1:
+                # We can now draw the external contours from the list of contours
+                cv2.drawContours(external_contours, contours, i, 255, -1)
+
+        external_contours = Image.fromarray(external_contours.astype('uint8'))
+        external_contours.save('contornos.png')
+        print('----------------')
+
+    def add_new_roi_frame(self, study, image_data, roi):
+        roid_data_frame = RoiDataFrame(self, self.app_data, study, image_data, roi)
+        roid_data_frame.grid(columnspan=2, sticky='EW', pady=6)
+        roid_data_frame.update_canvas_color_callback = self.update_canvas_callback
+        self.roi_data_frames.append(roid_data_frame)
+
+    def update_callback_in_roi_data_frames(self, callback):
+        self.update_canvas_callback = callback
+        for roi_data_frame in self.roi_data_frames:
+            roi_data_frame.update_canvas_color_callback = callback
 
     def update_image_data(self, image_data):
         self.image_data = image_data
@@ -138,10 +224,20 @@ class DataFrame(ttk.Frame):
         self.image_width.set(self.image_data.width)
 
 
+# -------------------------------- ROI DATA FRAME --------------------------------
 class RoiDataFrame(ttk.Frame):
     def __init__(self, container, app_data: AppData, study: ZStudy, image_data: ZImage, roi: ZRoi):
         super().__init__(container)
-        self.current_color = roi.roi_type.color if roi.roi_type else 'yellow'
+        self.app_data = app_data
+        self.study = study
+        self.image_data = image_data
+        self.roi = roi
+        self.update_canvas_color_callback = None
+        self.current_roi_series = self.study.series[0].get_roi_series_from_pk(roi.roi_series)
+        self.current_color = self.current_roi_series.color if self.current_roi_series else 'yellow'
+
+        if app_data.tirar == True:
+            self.current_color = 'Red'
 
         # -- COLOR PICKER --
         self.color_label = tk.Label(self,
@@ -162,15 +258,17 @@ class RoiDataFrame(ttk.Frame):
         # --
 
         # -- COLOR COMBO --
-        self.existint_roi_names = {'colon': 'red', 'cancer': 'blue'}
         self.selected_roi_name = tk.StringVar()
         self.existint_roi_name_combo = ttk.Combobox(self,
                                                     textvariable=self.selected_roi_name,
                                                     width=12)
-
-        self.existint_roi_name_combo['values'] = list(self.existint_roi_names.keys())
+        self.existint_roi_name_combo['state'] = 'readonly'
+        self._update_roi_series_in_combo_box()
         self.existint_roi_name_combo.grid(row=0, column=2, padx=(6, 0))
-        self.existint_roi_name_combo.set('hojojoor')
+        combo_box_values = self.existint_roi_name_combo['values']
+        for index, value in enumerate(combo_box_values):
+            if self.current_roi_series and self.current_roi_series.name == value:
+                self.existint_roi_name_combo.current(index)
         # --
 
         # -- BUTTONS --
@@ -183,38 +281,62 @@ class RoiDataFrame(ttk.Frame):
         # -- EVENTS --
         self.color_label.bind('<Button-1>', self.change_color)
         self.existint_roi_name_combo.bind('<<ComboboxSelected>>', self.handle_roi_name_selection)
-        self.existint_roi_name_combo.bind('<Enter>', self.handle_create_new_roi_name)
+        new_roi_name_entry.bind('<Return>', self._create_new_roi_series)
+        new_roi_name_entry.bind('<KP_Enter>', self._create_new_roi_series)
+        self.existint_roi_name_combo.bind('<Button-1>', self._update_roi_series_in_combo_box)
 
-    def guardar_roi(self):
-        pass
+    def guardar_roi(self, *args):
+        print(self.current_roi_series)
+        self.roi.roi_series = self.current_roi_series.pk
+        self.app_data.roi_repository.update_roi(self.roi)
 
     def borrar_roi(self):
-        pass
+        self.app_data.roi_repository.delete_roi_from_pk(self.roi.pk)
+        self.update_canvas_color_callback(roi_pk=self.roi.pk, delete=True)
+        self.destroy()
+
+    def _create_new_roi_series(self, event):
+        new_roi_series = self.app_data.roi_series_repository.add_new_roi_series_in_series(self.study.series[0].pk,
+                                                                                          self.new_roi_name_var.get(),
+                                                                                          self.current_color)
+        self.study.series[0].add_new_roi_series(new_roi_series)
+        self._update_roi_series_in_combo_box()
+        combo_box_values = self.existint_roi_name_combo['values']
+        for index, value in enumerate(combo_box_values):
+            if value == self.new_roi_name_var.get():
+                self.existint_roi_name_combo.current(index)
+                break
+        self.new_roi_name_var.set('')
+
+    def _update_roi_series_in_combo_box(self, *args):
+        rois_series_names = list([roi_series.name for roi_series in self.study.series[0].roi_series_list])
+        self.existint_roi_name_combo['values'] = rois_series_names
 
     def change_color(self, event=None):
         new_color = colorchooser.askcolor()
-        self.current_color = new_color
-        #self.color_label['background'] = new_color[1]
-        #self.update_roi_canvas_callback(new_color[1])
+        self.current_color = new_color[1]
+        self.color_label['background'] = new_color[1]
+        self.update_canvas_color_callback(new_color[1], self.roi.pk)
         self.focus()
 
     def handle_roi_name_selection(self, event=None):
-        print(self.existint_roi_name_combo.current())
-
-    def handle_create_new_roi_name(self, event=None):
-        print(self.existint_roi_name_combo)
-        print('hola')
+        current_index = self.existint_roi_name_combo.current()
+        current_name = self.existint_roi_name_combo['values'][current_index]
+        self.current_roi_series = self.study.series[0].get_roi_series_from_name(current_name)
+        self.update_canvas_color_callback(self.current_roi_series.color, self.roi.pk)
+        self.color_label['background'] = self.current_roi_series.color
 # ------------------------------------------------------------------------
 
 
 # -------------------------------- CANVAS --------------------------------
 class MyCanvas(tk.Canvas):
-    def __init__(self, container, app_data: AppData, study, image: ZImage):
+    def __init__(self, container, app_data: AppData, study, image: ZImage, add_new_roi_data_frame_callback):
         self.canvas_width = image.width
         self.canvas_height = image.height
         self.app_data = app_data
         self.study = study
         self.image = image
+        self.add_new_roi_data_frame_callback = add_new_roi_data_frame_callback
 
         self.rois = image.rois
         self.rois_drawn = {}
@@ -246,6 +368,7 @@ class MyCanvas(tk.Canvas):
         self.bind("<Motion>", self.check_cursor_and_coordinates)
         # self.bind("<<ROI_Color_Changed>>", self._print_roi_from_points_interpolated())
         # --
+
         self.initial_setup()
 
     def initial_setup(self):
@@ -256,19 +379,27 @@ class MyCanvas(tk.Canvas):
                                                          text='0 x 0',
                                                          anchor='nw')
 
-        self.rois_drawn['drawing'] = {'points': {}, 'lines': []}
+        self.rois_drawn['drawing'] = {'points': {}, 'lines': [], 'color': self.current_color}
         for roi in self.rois:
-            self.rois_drawn[roi.pk] = {'points': {}, 'lines': []}
+            self.rois_drawn[roi.pk] = {'points': {}, 'lines': [], 'color': self.current_color}
             for point in roi.points_px:
                 canvas_index = self.create_circle(*point, ROI_POINT_RADIUS, fill=self.current_color)
                 self.rois_drawn[roi.pk]['points'][canvas_index] = point
             self._print_roi_from_points_interpolated(roi.pk)
 
-    '''def update_roi_canvas(self, color):
-        self.current_color = color
-        self._print_roi_from_points_interpolated()
-        for point in self.roi_points:
-            self.itemconfigure(point, fill=self.current_color)'''
+    def update_roi_canvas(self, color=None, roi_pk=None, **kwargs):
+        # Actualizamos entero el canvas
+        if 'delete' in kwargs:
+            for point in self.rois_drawn[roi_pk]['points'].keys():
+                self.delete(point)
+            for line in self.rois_drawn[roi_pk]['lines']:
+                self.delete(line)
+            self.rois_drawn.pop(roi_pk)
+        else:
+            self.rois_drawn[roi_pk]['color'] = color
+            self._print_roi_from_points_interpolated(roi_pk)
+            for point in self.rois_drawn[roi_pk]['points']:
+                self.itemconfigure(point, fill=color)
 
     def _move(self, event):
         if self.current_point is not None:
@@ -302,7 +433,7 @@ class MyCanvas(tk.Canvas):
         for index in range(len(keys_list) - 1):
             line = self.create_line(*self.rois_drawn[roi_pk]['points'][keys_list[index]],
                                     *self.rois_drawn[roi_pk]['points'][keys_list[index+1]],
-                                    fill=self.current_color)
+                                    fill=self.rois_drawn[roi_pk]['color'])
             self.rois_drawn[roi_pk]['lines'].append(line)
     # --
 
@@ -332,11 +463,10 @@ class MyCanvas(tk.Canvas):
         for line in self.rois_drawn[roi_pk]['lines']:
             self.delete(line)
         self.rois_drawn[roi_pk]['lines'] = []
-
         for index in range(len(xi) - 1):
             line = self.create_line(xi[index], yi[index],
                                     xi[index + 1], yi[index + 1],
-                                    fill=self.current_color)
+                                    fill=self.rois_drawn[roi_pk]['color'])
             self.rois_drawn[roi_pk]['lines'].append(line)
 
     '''def _delete_circle_by_event(self, event):
@@ -358,9 +488,10 @@ class MyCanvas(tk.Canvas):
             self.image.add_roi(new_roi)
 
             self.rois_drawn[new_roi_pk] = self.rois_drawn['drawing']
-            self.rois_drawn['drawing'] = {'points': {}, 'lines': []}
+            self.rois_drawn['drawing'] = {'points': {}, 'lines': [], 'color': self.current_color}
 
             self._print_roi_from_points_interpolated(new_roi_pk)
+            self.add_new_roi_data_frame_callback(self.study, self.image, new_roi)
         else:
             messagebox.showerror('Error', 'Para cerrar el ROI hay que tener al mínimo 3 puntos')
     # --
@@ -392,4 +523,116 @@ class MyCanvas(tk.Canvas):
         self.config(cursor="")
         self.current_point = None
 
+    def predict_roi_callback(self):
+        base = os.path.basename(self.image.path)
+        numero = os.path.splitext(base)[0]
+
+
+        aux = device_lib.list_local_devices()
+        print('----------------')
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model = torch.jit.load("Assets/unet.pth")
+        model = model.cpu()
+        model.eval()
+        import torchvision.transforms as transforms
+        def transform_image(image):
+            my_transforms = transforms.Compose([transforms.ToTensor(),
+                                                transforms.Normalize(
+                                                    [0.485, 0.456, 0.406],
+                                                    [0.229, 0.224, 0.225])])
+            image_aux = image
+            return my_transforms(image_aux).unsqueeze(0).to(device)
+
+
+        img = PIL.Image.open('Assets/dataset/Images/test/orig-' + numero + '.png')
+        img = img.convert('RGB')
+        image = transforms.Resize((512, 512))(img)
+        tensor = transform_image(image=image)
+        model.to(device)
+        with torch.no_grad():
+            outputs = model(tensor)
+        outputs = torch.argmax(outputs, 1)
+
+        mask = np.array(outputs.cpu())
+        mask[mask == 1] = 255
+        mask = np.reshape(mask, (512, 512))
+        predicha = Image.fromarray(mask.astype('uint8'))
+        img.save('original.png')
+        predicha.save('predicha.png')
+
+        contours, hierarchy = cv2.findContours(mask.astype('uint8'), cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
+        # Draw External Contours
+
+        # Set up empty array
+        external_contours = np.zeros(mask.astype('uint8').shape)
+
+
+
+        # For every entry in contours
+        for i in range(len(contours)):
+            resultado = []
+            resultado_dict = {}
+            aux = contours[i].reshape([contours[i].shape[0], 2])
+            for index, punto in enumerate(aux):
+                resultado.append((punto[0], punto[1]))
+            resultado = resultado[::2][::2][::2]
+
+            z_index = self.app_data.image_repository.get_last_roi_index_from_image(self.image.pk) + 1
+            new_roi = ZRoi(None, None, z_index, resultado)
+            # -- Update in Persistant World
+            new_roi_pk = self.app_data.image_repository.add_roi_to_image(self.image.pk, z_index, new_roi)
+            print('-- NEW ROI_PK --' + str(new_roi_pk))
+            # -- Update in Objects World
+            new_roi.pk = new_roi_pk
+            self.image.add_roi(new_roi)
+
+            self.rois_drawn[new_roi_pk] = {'points': {}, 'lines': [], 'color': 'red'}
+            for punto in resultado:
+                canvas_index = self.create_circle(*punto, ROI_POINT_RADIUS, fill='red')
+                self.rois_drawn[new_roi_pk]['points'][canvas_index] = punto
+
+            self._print_roi_from_points_interpolated(new_roi_pk)
+            self.app_data.tirar = True
+            self.add_new_roi_data_frame_callback(self.study, self.image, new_roi)
+            self.app_data.tirar = False
+
+
+            # last column in the array is -1 if an external contour (no contours inside of it)
+            #if hierarchy[0][i][3] == -1:
+                # We can now draw the external contours from the list of contours
+                #cv2.drawContours(external_contours, contours, i, 255, -1)
+                # -- Update in Objects World
+
+
+        #external_contours = Image.fromarray(external_contours.astype('uint8'))
+        #external_contours.save('contornos.png')
+        print('----------------')
+
+   # -- Print ROI Interpolated --
+    def _print_roi_from_points_interpolated_tirar(self, roi_pk, points_px):
+
+        if len(points_px) < 4:
+            #self._print_roi_from_points_linear(roi_pk)
+            return
+
+        x = [coords[0] for coords in points_px]
+        y = [coords[1] for coords in points_px]
+
+        if roi_pk == 'drawing':
+            tck, u = splprep([x, y], s=0)
+        elif roi_pk:
+            x.append(x[0])
+            y.append(y[0])
+            tck, u = splprep([x, y], s=0, per=True)
+        else:
+            tck, u = splprep([x, y], s=0)
+
+        # evaluate the spline fits for 1000 evenly spaced distance values
+        xi, yi = splev(np.linspace(0, 1, 1000), tck)
+
+        for index in range(len(xi) - 1):
+            line = self.create_line(xi[index], yi[index],
+                                    xi[index + 1], yi[index + 1],
+                                    fill=self.rois_drawn[roi_pk]['color'])
+            self.rois_drawn[roi_pk]['lines'].append(line)
 # ------------------------------------------------------------------------

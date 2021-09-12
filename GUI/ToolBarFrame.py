@@ -9,16 +9,16 @@ class ToolBarFrame(ttk.Frame):
         super().__init__(container, height=50)
         self.change_changeable_frame_callback = change_changeable_frame_callback
 
-        boton_abrir = self._create_button(self, 'Abrir', 'Assets/abrir.png')
+        boton_abrir = self._create_button(self, 'Abrir', 'Assets/abrir.png', app_data)
         boton_abrir.grid(row=0, column=0, sticky='NSEW', padx=5)
 
-        boton_guardar = self._create_button(self, 'Guardar', 'Assets/guardar.png')
+        boton_guardar = self._create_button(self, 'Guardar', 'Assets/guardar.png', app_data)
         boton_guardar.grid(row=0, column=1, sticky='NSEW', padx=(10, 20))
 
-        boton_pintar = self._create_button(self, 'ROI', 'Assets/editar.png')
+        boton_pintar = self._create_button(self, 'ROI', 'Assets/editar.png', app_data)
         boton_pintar.grid(row=0, column=2, sticky='NSEW', padx=(15, 5))
 
-        boton_3d = self._create_button(self, 'Modelo 3D', 'Assets/3d.png')
+        boton_3d = self._create_button(self, 'Modelo 3D', 'Assets/3d.png', app_data)
         boton_3d.grid(row=0, column=3, sticky='NSEW', padx=0)
 
         # -- PATIENTS COMBOBOX
@@ -43,7 +43,7 @@ class ToolBarFrame(ttk.Frame):
         self.change_changeable_frame_callback(self.series_box.current())
 
     @staticmethod
-    def _create_button(container, text, icon_path):
+    def _create_button(container, text, icon_path, app_data: AppData):
         button_frame = ttk.Frame(container, height=150)
         button_frame.grid_columnconfigure(0, weight=1)
         label = ttk.Label(button_frame,
@@ -52,8 +52,15 @@ class ToolBarFrame(ttk.Frame):
         label.grid(row=1, column=0)
 
         photo = tk.PhotoImage(file=icon_path)
-        boton = tk.Button(button_frame,
-                          image=photo)
+
+        if text == 'ROI':
+            boton = tk.Button(button_frame,
+                              image=photo,
+                              command=app_data.predict_rois)
+        else:
+            boton = tk.Button(button_frame,
+                              image=photo)
+
         boton.config(image=photo)
         boton.image = photo
         boton.grid(row=0, column=0)

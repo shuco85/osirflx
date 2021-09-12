@@ -37,3 +37,25 @@ class ImpSqliteRoiRepository(IRoiRepository):
             new_roi = ZRoi(roi_pk, roi_series=z_roi_type, index=z_index, points_px=z_points_px)
             rois_list.append(new_roi)
         return rois_list
+
+    def delete_roi_from_pk(self, z_pk) -> None:
+        self._delete_roi_from_pk(z_pk)
+
+    @connection_to_db
+    def _delete_roi_from_pk(self, z_pk, **kwargs) -> None:
+        cursor = kwargs['cursor']
+        query = '''DELETE
+                   FROM Z_ROI
+                   WHERE Z_PK LIKE ?'''
+        cursor.execute(query, (z_pk, ))
+
+    def update_roi(self, z_roi) -> None:
+        self._update_roi_with_connection(z_roi)
+
+    @connection_to_db
+    def _update_roi_with_connection(self, z_roi, **kwargs) -> None:
+        cursor = kwargs['cursor']
+        query = '''UPDATE Z_ROI
+                   SET Z_ROI_TYPE = ?, Z_POINTS_PX = ?
+                   WHERE Z_PK LIKE ?'''
+        cursor.execute(query, (str(z_roi.roi_series), str(z_roi.points_px), str(z_roi.pk),))

@@ -7,6 +7,7 @@ app_data = AppData()
 root = Osirflx(app_data)
 app_data.set_root(root)
 app_data.update_bindings()
+app_data.func_tirar()
 
 # Application Icon
 img = tk.Image("photo", file="Assets/icon.png")

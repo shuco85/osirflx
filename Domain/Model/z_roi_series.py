@@ -3,3 +3,6 @@ class ZRoiSeries:
         self.pk = pk
         self.name = name
         self.color = color
+
+    def __str__(self):
+        return f"Pk: {self.pk}\n Name: {self.name}\n Color: {self.color}"

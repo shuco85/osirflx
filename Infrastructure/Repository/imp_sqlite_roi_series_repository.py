@@ -1,5 +1,5 @@
 from Domain.Repository import IRoiSeriesRepository
-from Domain.Model import ZRoiSeries, ZSeries
+from Domain.Model import ZRoiSeries
 from Infrastructure.Repository import connection_to_db
 from typing import List
 
@@ -13,7 +13,7 @@ class ImpSqliteRoiSeriesRepository(IRoiSeriesRepository):
         pass
 
     def get_roi_series_from_series_pk(self, z_series_pk) -> List[ZRoiSeries]:
-        pass
+        return self._get_roi_series_from_series_pk_with_connection(z_series_pk)
 
     @connection_to_db
     def _get_roi_series_from_series_pk_with_connection(self, z_series_pk, **kwargs) -> List[ZRoiSeries]:
@@ -34,3 +34,16 @@ class ImpSqliteRoiSeriesRepository(IRoiSeriesRepository):
             roi_series_list.append(new_row_series)
 
         return roi_series_list
+
+    def add_new_roi_series_in_series(self, z_series_pk, z_name, z_color) -> ZRoiSeries:
+        return self._add_new_roi_series_in_series_with_connection(z_series_pk, z_name, z_color)
+
+    @connection_to_db
+    def _add_new_roi_series_in_series_with_connection(self, z_series_pk, z_name, z_color, **kwargs) -> ZRoiSeries:
+        cursor = kwargs['cursor']
+        sql = ''' INSERT INTO Z_ROI_SERIES (Z_SERIES, Z_NAME, Z_COLOR)
+                  VALUES(?,?,?) '''
+        cursor.execute(sql, (str(z_series_pk), str(z_name), str(z_color),))
+        roi_series_pk = cursor.lastrowid
+        new_roi_series = ZRoiSeries(roi_series_pk, z_name, z_color)
+        return new_roi_series

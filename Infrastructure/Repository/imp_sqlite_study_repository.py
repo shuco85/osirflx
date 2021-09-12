@@ -18,7 +18,7 @@ class ImpSqliteStudyRepository(IStudyRepository):
     def _get_all_studies_with_connection(self, **kwargs):
         studies_list = []
         cursor = kwargs['cursor']
-        sqlite_select_query = '''SELECT Z_PK, Z_STUDY_INSTANCE_UID, Z_PATIENT_NAME, Z_PATIENT_ID FROM Z_STUDY LIMIT 2   '''
+        sqlite_select_query = '''SELECT Z_PK, Z_STUDY_INSTANCE_UID, Z_PATIENT_NAME, Z_PATIENT_ID FROM Z_STUDY LIMIT 5'''
         cursor.execute(sqlite_select_query)
         records = cursor.fetchall()
 

@@ -6,13 +6,13 @@ class ZRoi:
     def __init__(self, pk=None, roi_series=None, index=None, points_px=None):
         self.pk = pk
         self.index = index
-        self.roi_type = roi_series
+        self.roi_series = roi_series
         self.points_px = points_px
 
     def __str__(self):
         return(f"Primary Key: {self.pk}\n" +
                f"Index: {self.index}\n" +
-               f"ROI Type: {self.roi_type if self.roi_type else 'No hay'}\n" +
+               f"ROI Type: {self.roi_series if self.roi_series else 'No hay'}\n" +
                f"points_px: {self.points_px}\n")
 
     def get_interpolated_points(self):

@@ -34,3 +34,11 @@ class ZSeries:
         for roi_series in self.roi_series_list:
             if roi_series.name == name:
                 return roi_series
+
+    def get_roi_series_from_pk(self, roi_series_pk):
+        for roi_series in self.roi_series_list:
+            if roi_series.pk == roi_series_pk:
+                return roi_series
+
+    def add_new_roi_series(self, roi_series):
+        self.roi_series_list.append(roi_series)
